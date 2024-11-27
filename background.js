@@ -6,28 +6,35 @@ let capturedRequests = [];
 // 监听网络请求
 chrome.webRequest.onBeforeRequest.addListener(
   function(details) {
-    // 只关注 GET 请求
     if (details.method === 'GET') {
-      // 记录所有媒体相关请求
+      // 记录所有媒体相关请求和 API 请求
       if (details.url.includes('.m3u8') || 
           details.url.includes('.ts') || 
           details.url.includes('audio') ||
-          details.url.includes('media')) {
+          details.url.includes('media') ||
+          details.url.includes('AudioSpaceById') ||
+          details.url.includes('broadcasts/show')) {
         
-        console.log('捕获到媒体请求:', details.url);
-        capturedRequests.push({
-          timestamp: Date.now(),
-          url: details.url,
-          type: details.type
+        console.log('捕获到请求:', details.url);
+        
+        // 保存请求头信息
+        chrome.webRequest.getResponseHeaders(details.requestId).then(headers => {
+          capturedRequests.push({
+            timestamp: Date.now(),
+            url: details.url,
+            type: details.type,
+            headers: headers
+          });
         });
         
-        // 如果是 M3U8
-        if (details.url.includes('.m3u8')) {
+        // 如果是 M3U8 或者 API 响应
+        if (details.url.includes('.m3u8') || details.url.includes('AudioSpaceById')) {
           chrome.storage.local.set({
-            'm3u8Url': details.url,
-            'timestamp': Date.now()
-          }, () => {
-            console.log('已存储 M3U8 URL:', details.url);
+            'lastRequest': {
+              url: details.url,
+              timestamp: Date.now(),
+              headers: details.requestHeaders
+            }
           });
         }
       }
@@ -43,8 +50,72 @@ chrome.webRequest.onBeforeRequest.addListener(
       "*://*.video.twitter.com/*"
     ]
   },
-  ["requestBody"]
+  ["requestBody", "requestHeaders", "extraHeaders"]
 );
+
+// 添加响应头监听器
+chrome.webRequest.onHeadersReceived.addListener(
+  function(details) {
+    if (details.url.includes('.m3u8') || details.url.includes('AudioSpaceById')) {
+      chrome.storage.local.set({
+        'lastResponse': {
+          url: details.url,
+          timestamp: Date.now(),
+          headers: details.responseHeaders
+        }
+      });
+    }
+    return { responseHeaders: details.responseHeaders };
+  },
+  {
+    urls: [
+      "*://*.twitter.com/*",
+      "*://*.x.com/*",
+      "*://*.pscp.tv/*",
+      "*://*.periscope.tv/*",
+      "*://*.video.twitter.com/*"
+    ]
+  },
+  ["responseHeaders", "extraHeaders"]
+);
+
+// 添加新的函数来获取 bearer token
+async function getTwitterBearerToken() {
+    const cookies = await chrome.cookies.getAll({
+        domain: '.twitter.com',
+        name: 'ct0' // CSRF token
+    });
+    return cookies[0]?.value || '';
+}
+
+// 修改 getTwitterCookies 函数
+async function getTwitterCookies() {
+    const cookies = await chrome.cookies.getAll({
+        domain: '.twitter.com'
+    });
+    
+    // 特别获取 auth_token
+    const authToken = cookies.find(c => c.name === 'auth_token')?.value;
+    const ct0 = cookies.find(c => c.name === 'ct0')?.value;
+    
+    return {
+        cookieString: cookies.map(cookie => `${cookie.name}=${cookie.value}`).join('; '),
+        authToken,
+        ct0
+    };
+}
+
+// 修改消息监听器
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    if (request.type === 'GET_M3U8') {
+        // 保存现有的处理逻辑...
+    } else if (request.type === 'GET_COOKIES') {
+        getTwitterCookies().then(cookieData => {
+            sendResponse(cookieData);
+        });
+        return true;
+    }
+});
 
 // 提供获取捕获请求的方法
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {

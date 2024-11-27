@@ -9,14 +9,19 @@
         "storage",
         "downloads",
         "webRequest",
-        "debugger"
+        "debugger",
+        "cookies",
+        "webRequestBlocking"
     ],
     "host_permissions": [
         "*://*.twitter.com/*",
         "*://*.x.com/*",
         "*://*.pscp.tv/*",
         "*://*.periscope.tv/*",
-        "*://*.video.twitter.com/*"
+        "*://*.video.twitter.com/*",
+        "https://*.pscp.tv/*",
+        "https://*.video.pscp.tv/*",
+        "https://*.twimg.com/*"
     ],
     "background": {
         "service_worker": "background.js"
