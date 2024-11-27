@@ -1,0 +1,33 @@
+{
+    "manifest_version": 3,
+    "name": "X Space 音频下载器",
+    "version": "1.0",
+    "description": "下载 X/Twitter Space 音频",
+    "permissions": [
+        "activeTab",
+        "scripting",
+        "storage",
+        "downloads",
+        "webRequest",
+        "debugger"
+    ],
+    "host_permissions": [
+        "*://*.twitter.com/*",
+        "*://*.x.com/*",
+        "*://*.pscp.tv/*",
+        "*://*.periscope.tv/*",
+        "*://*.video.twitter.com/*"
+    ],
+    "background": {
+        "service_worker": "background.js"
+    },
+    "action": {
+        "default_popup": "popup.html"
+    },
+    "content_scripts": [
+        {
+            "matches": ["*://*.twitter.com/*", "*://*.x.com/*"],
+            "js": ["content.js"]
+        }
+    ]
+}
